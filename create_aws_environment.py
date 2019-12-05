@@ -5,6 +5,7 @@ import boto3
 import sys
 import os
 import sys
+from joblib import Parallel, delayed
 
 
 
@@ -45,7 +46,9 @@ print("Termination queue url: ", termination_queue_url)
 # s3.upload_file('awsnoncefinder.py', 'borsim.codebucket', 'awsnoncefinder.py')
 
 # hostfile = open("pssh_hosts.txt", "w")
+Parallel(n_jobs=num_cores)(delayed(sqrt)(i ** 2) for i in range(10))
 for instance in ec2.instances.all():
+def setup_instance(instance):
     instance.load()
     iid = ec2cli.describe_instances(instance)['InstanceIds'][0]
     response = ec2cli.associate_iam_instance_profile(
