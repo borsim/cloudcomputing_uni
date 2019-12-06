@@ -50,5 +50,4 @@ while ((processLive)) && (( scrumNotTriggered )); do
       scrumNotTriggered=false
     fi
 done
-#sleep 30
-#python3 clean_aws_environment.py
+python3 clean_aws_environment.py
