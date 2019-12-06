@@ -18,8 +18,8 @@ except Exception as error:
 try:
     task_queue_url = sqscli.get_queue_url(QueueName='task_queue')['QueueUrl']
     termination_queue_url = sqscli.get_queue_url(QueueName='termination_queue')['QueueUrl']
-    response1 = sqscli.delete_queue(QueueUrl='task_queue')
-    response2 = sqscli.delete_queue(QueueUrl='termination_queue')
+    response1 = sqscli.delete_queue(QueueUrl=task_queue_url)
+    response2 = sqscli.delete_queue(QueueUrl=termination_queue_url)
 except Exception as error:
     print(error, "Queue resources to delete don't exist.")
 
