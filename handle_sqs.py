@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # Working as intended.
+# Also accepts the 4 parameters as command-line arguments in the asked order
 # Extension possibility: add "not found" termination
 # Extension possibility: add jobIDs
 # Extension possibility: warn user when # of VMs required are not available
@@ -67,32 +68,39 @@ def parse_termination_message(termination_msg):
 
 if __name__ == "__main__":
     startTime = time.time()
-    diff_b = input("Please enter the difficulty bits for the nonce (default: 23): ")
-    if diff_b == '':
-        diff_b = 23
+    if len(sys.argv) - 1 == 4:
+        diff_b = int(sys.argv[1])
+        sec_m = sys.argv[2]
+        num_m = int(sys.argv[3])
+        prob = float(sys.argv[4])
     else:
-        diff_b = int(diff_b)
-    sec_m = input("Please enter the secret for the nonce (default: deadbeef1234): ")
-    if sec_m == '':
-        sec_m = 'deadbeef1234'
-    num_m = input("Please enter the number of VMs requisitoned (default: 1): ")
-    if num_m == '':
-        num_m = 1
-    else:
-        num_m = int(num_m)
-    prob = input("Please enter the safety margin ratio you want for nonce finding (default: 2): ")
-    if prob == '':
-        prob = 2
-    else:
-        prob = int(prob)
-    if prob <= 0:
-        prob = 2
+        diff_b = input("Please enter the difficulty bits for the nonce (default: 23): ")
+        if diff_b == '':
+            diff_b = 23
+        else:
+            diff_b = int(diff_b)
+        sec_m = input("Please enter the secret for the nonce (default: deadbeef1234): ")
+        if sec_m == '':
+            sec_m = 'deadbeef1234'
+        num_m = input("Please enter the number of VMs requisitoned (default: 1): ")
+        if num_m == '':
+            num_m = 1
+        else:
+            num_m = int(num_m)
+        prob = input("Please enter the safety margin - "+
+                     "how many times above the expected value should nonces be checked (default: 2): ")
+        if prob == '':
+            prob = 2
+        else:
+            prob = float(prob)
+        if prob <= 0:
+            prob = 2
     num_expected_hashes = 2 ** diff_b
     hash_per_sec_benchmark = 374381
     queue_overhead = 16
     expected_time = num_expected_hashes / hash_per_sec_benchmark
     print("Expected time (without queue overhead): ", expected_time, " seconds")
-    print("Expected time (with queue overhead): ", expected_time  + queue_overhead, " seconds")
+    print("Expected time (with queue overhead): ", expected_time + queue_overhead, " seconds")
     for i in range(0, num_m):
         create_task(i * (num_expected_hashes * prob), (i+1) * (num_expected_hashes * prob), diff_b, sec_m)
     msg = await_termination()
