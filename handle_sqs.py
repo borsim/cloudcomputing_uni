@@ -1,21 +1,19 @@
 #!/usr/bin/env python
 # Working as intended.
 # Also accepts the 4 parameters as command-line arguments in the asked order
-# Extension possibility: add "not found" termination
-# Extension possibility: add jobIDs
-# Extension possibility: warn user when # of VMs required are not available
 
 import time
 import random
 import boto3
 import sys
-
+import uuid
 sqscli = boto3.client("sqs")
 task_queue_url = sqscli.get_queue_url(QueueName='task_queue')['QueueUrl']
 termination_queue_url = sqscli.get_queue_url(QueueName='termination_queue')['QueueUrl']
 
 
-def create_task(from_num, to_num, difficulty_bits, message):
+
+def create_task(from_num, to_num, difficulty_bits, message, uid):
     response = sqscli.send_message(
         QueueUrl=task_queue_url,
         DelaySeconds=0,
@@ -35,22 +33,36 @@ def create_task(from_num, to_num, difficulty_bits, message):
             'secret_message': {
                 'DataType': 'String',
                 'StringValue': message
+            },
+            'jobid': {
+                'DataType': 'String',
+                'StringValue': uid
             }
         },
         MessageBody='Task given to VM to find golden nonce')
 
 
-def await_termination():
+def await_termination(num_tasks, uid):
+    not_found_count = 0
     nonce_found = False
     termination_msg = {}
-    while not nonce_found:
+    while not nonce_found and not_found_count != num_tasks:
         response = sqscli.receive_message(QueueUrl=termination_queue_url,
-                                       AttributeNames=['SentTimestamp'],
-                                       MessageAttributeNames=['All'])
+                                          AttributeNames=['SentTimestamp'],
+                                          MessageAttributeNames=['All'])
         try:
             termination_msg = response['Messages'][0]
-            nonce_found = True
-        except:
+            if termination_msg['MessageAttributes']['termination']['StringValue'] == "Nonce found" and uid == termination_msg['MessageAttributes']['jobid']['StringValue']:
+                nonce_found = True
+            elif termination_msg['MessageAttributes']['termination']['StringValue'] == "Nonce not found" and uid == termination_msg['MessageAttributes']['jobid']['StringValue']:
+                receipt_handle = termination_msg['ReceiptHandle']
+                sqscli.delete_message(
+                    QueueUrl=termination_queue_url,
+                    ReceiptHandle=receipt_handle
+                )
+                not_found_count += 1
+
+        except Exception as error:
             pass
     if termination_msg['MessageAttributes']['termination']['StringValue'] != "":
         return termination_msg
@@ -67,7 +79,6 @@ def parse_termination_message(termination_msg):
 
 
 if __name__ == "__main__":
-    startTime = time.time()
     if len(sys.argv) - 1 == 4:
         diff_b = int(sys.argv[1])
         sec_m = sys.argv[2]
@@ -95,24 +106,28 @@ if __name__ == "__main__":
             prob = float(prob)
         if prob <= 0:
             prob = 2
+    startTime = time.time()
     num_expected_hashes = 2 ** diff_b
     hash_per_sec_benchmark = 374381
     queue_overhead = 16
     expected_time = num_expected_hashes / hash_per_sec_benchmark
     print("Expected time (without queue overhead): ", expected_time, " seconds")
     print("Expected time (with queue overhead): ", expected_time + queue_overhead, " seconds")
+    jobid = uuid.uuid4()
     for i in range(0, num_m):
-        create_task(i * (num_expected_hashes * prob), (i+1) * (num_expected_hashes * prob), diff_b, sec_m)
-    msg = await_termination()
+        create_task(int(round(i * (num_expected_hashes * prob))), int(round((i+1) * (num_expected_hashes * prob))),
+                    diff_b, sec_m, jobid)
+    msg = await_termination(num_m)
     nv, nh, endTime, rec_h = parse_termination_message(msg)
     print("Nonce found: ", nv)
     print("Hash value: ", nh)
     print("Time taken: ", (endTime - startTime), " seconds")
-    print("Leaving 12 seconds for task termination on queue...")
-    time.sleep(12)  # Leave time for VMs to read termination message
+    print("Leaving 20 seconds for task termination on queue...")
+    time.sleep(20)  # Leave time for VMs to read termination message
     # Empty queue for cleanup
     sqscli.delete_message(
         QueueUrl=termination_queue_url,
         ReceiptHandle=rec_h
     )
+    #exec(clean_aws_environment.py)  # Delete cloud resources
 

@@ -46,7 +46,7 @@ print("Termination queue url: ", termination_queue_url)
 # s3.upload_file('awsnoncefinder.py', 'borsim.codebucket', 'awsnoncefinder.py')
 
 # Associate policy to allow sqs access for ec2 instances
-time.sleep(15)
+time.sleep(25)
 for iid_dict in ec2cli.describe_instances(Filters=[
         {
             'Name': 'instance-state-name',
@@ -64,7 +64,6 @@ for iid_dict in ec2cli.describe_instances(Filters=[
     except Exception as error:
         print(error, "Profile already associated")
 
-hosts = []
 for instance in ec2cli.describe_instances(Filters=[
         {
             'Name': 'instance-state-name',
@@ -72,7 +71,6 @@ for instance in ec2cli.describe_instances(Filters=[
                 'running']},
     ])['Reservations'][0]['Instances']:
     hostname = instance['PublicDnsName']
-    hosts.append(hostname)
     os.system('ssh-keyscan ' + hostname + ' >> ~/.ssh/known_hosts')
     os.system('scp -i ~/.ssh/ec2-keypair.pem awsnoncefinder.py ec2-user@' + hostname + ':~')
     os.system('ssh -i ~/.ssh/ec2-keypair.pem ec2-user@' + hostname + ' sudo yum install python36 -y')
